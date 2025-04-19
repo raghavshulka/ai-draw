@@ -1,6 +1,8 @@
 import express from "express";
 import { prisma } from "db/client";
 import jwt from "jsonwebtoken";
+import { authMiddleware } from "./middleware.js";
+
 const app = express();
 
 app.use(express.json());
@@ -14,27 +16,29 @@ app.post("/signup", async (req, res) => {
   res.json({ token });
 });
 
-//@ts-ignore
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const user = await prisma.user.findUnique({ where: { username, password } });
-  if (!user) return res.status(401).json({ message: "Invalid credentials" });
+  if (!user) {
+    res.status(401).json({ message: "Invalid credentials" });
+    return;
+  }
   const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || "secret");
   res.json({ token });
 });
 
-// app.post("/create-room", async (req, res) => {
-//   const { name } = req.body;
-//   const user = await prismaClient.user.findUnique({ where: { username, password } });
-//   if (!user) return res.status(401).json({ message: "Invalid credentials" });
-//   const room = await prismaClient.room.create( {
-//     data: {
-//       name,
-//       adminId: user.id,
-//     },
-//   });
-//   res.json(room);
-// });
+app.post("/create-room", authMiddleware, async (req, res) => {
+  //@ts-ignore
+  const userId = req?.userId;
+  const { name } = req.body;
+  const room = await prisma.room.create({
+    data: {
+      name: name,
+      adminId: userId,
+    },
+  });
+  res.json(room).status(201);
+});
 
 app.get("/", (req, res) => {
   res.send("Hello World");

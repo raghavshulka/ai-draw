@@ -25,7 +25,7 @@ model User {
 
 model Room {
   id        String   @id @default(uuid())
-  name      String
+  name      String   @unique
   createdAt DateTime @default(now())
   adminId   String
   admin     User     @relation(fields: [adminId], references: [id])
