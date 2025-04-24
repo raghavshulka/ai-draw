@@ -1,84 +1,101 @@
-# Turborepo starter
+# AIDraw
 
-This Turborepo starter is maintained by the Turborepo core team.
+AIDraw is an open-source collaborative drawing platform inspired by Excalidraw, designed for real-time collaborative sketching and diagramming.
 
-## Using this example
+## Overview
 
-Run the following command:
+AIDraw provides a simple, intuitive interface for creating diagrams, sketches, and illustrations in real-time. Built with a modern tech stack, it leverages AI capabilities to enhance the drawing experience.
 
-```sh
-npx create-turbo@latest
-```
+## Features (Planned)
 
-## What's inside?
+- Real-time collaborative drawing
+- Minimalist, intuitive UI
+- Vector-based graphics for crisp rendering at any scale
+- Shape recognition and auto-alignment
+- Dark/light theme support
+- Exportable drawings (PNG, SVG, etc.)
+- Keyboard shortcuts for power users
+- AI-assisted drawing features
 
-This Turborepo includes the following packages/apps:
+## Tech Stack
 
-### Apps and Packages
+- **Frontend**: Next.js, React, TypeScript
+- **Backend**: Node.js
+- **Real-time Communication**: WebSockets
+- **Monorepo Structure**: Turborepo
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
+## Project Structure
 
 ```
-cd my-turborepo
-pnpm build
+ai-draw/
+├── apps/
+│   ├── web/        # Next.js web application
+│   ├── server/     # Backend server
+│   └── ws/         # WebSocket server for real-time features
+├── packages/
+│   ├── ui/         # Shared UI components
+│   ├── db/         # Database package with Prisma ORM
+│   └── ...         # Other shared packages
 ```
 
-### Develop
+## Getting Started
 
-To develop all apps and packages, run the following command:
+### Prerequisites
 
+- Node.js (>= 18)
+- pnpm (>= 9.0.0)
+- PostgreSQL database
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/ai-draw.git
+cd ai-draw
+
+# Install dependencies
+pnpm install
+
+# Set up environment variables
+# Create a .env file in packages/db with:
+# DATABASE_URL="postgresql://username:password@localhost:5432/ai-draw"
+
+# Generate Prisma client
+pnpm prisma:generate
 ```
-cd my-turborepo
+
+### Development
+
+To run the development environment:
+
+```bash
 pnpm dev
 ```
 
-### Remote Caching
+This will start all applications in development mode.
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+### Building
 
-Turborepo can use a technique known as [Remote Caching](https://turbo.build/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+To build all applications:
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-npx turbo login
+```bash
+pnpm build
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+## Contributing
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+Contributions are welcome! Feel free to open issues or submit pull requests.
 
-```
-npx turbo link
-```
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add some amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a pull request
 
-## Useful Links
+## License
 
-Learn more about the power of Turborepo:
+[MIT](LICENSE)
 
-- [Tasks](https://turbo.build/docs/core-concepts/monorepos/running-tasks)
-- [Caching](https://turbo.build/docs/core-concepts/caching)
-- [Remote Caching](https://turbo.build/docs/core-concepts/remote-caching)
-- [Filtering](https://turbo.build/docs/core-concepts/monorepos/filtering)
-- [Configuration Options](https://turbo.build/docs/reference/configuration)
-- [CLI Usage](https://turbo.build/docs/reference/command-line-reference)
+## Acknowledgements
+
+- Built with [Turborepo](https://turbo.build/)
