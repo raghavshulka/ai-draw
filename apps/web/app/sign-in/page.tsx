@@ -4,25 +4,39 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ModeToggle } from "../../components/mode-toggle";
+import axios from "axios";
+import { useAuth } from "../providers/authProvider";
 
 export default function SignIn() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const { login } = useAuth();
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Here you would add your authentication logic
-    console.log("Signing in with:", email, password);
-    
-    // Simulate auth delay
-    setTimeout(() => {
+    try { 
+      const baseUrl = "http://localhost:3002";
+      const response = await axios.post(`${baseUrl}/login`, {
+        username,
+        password,
+      });
+      
+      if (response.status === 200) {
+        const token = response.data.token;
+        login(token);
+        setIsLoading(false);
+        router.push("/");
+      }
+    } catch (error) {   
       setIsLoading(false);
-      router.push("/");
-    }, 1000);
+      setError("Invalid credentials");
+    }
   };
 
   return (
@@ -47,17 +61,17 @@ export default function SignIn() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label
-                  htmlFor="email"
+                  htmlFor="username"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Email
+                  Username
                 </label>
                 <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   required
                 />
@@ -98,6 +112,7 @@ export default function SignIn() {
                 Sign up
               </Link>
             </div>
+            {error && <p className="text-red-500">{error}</p>}
           </div>
         </div>
       </main>

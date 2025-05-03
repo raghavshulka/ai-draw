@@ -4,26 +4,41 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ModeToggle } from "../../components/mode-toggle";
+import axios from "axios";
+import { useAuth } from "../providers/authProvider";
 
 export default function SignUp() {
   const router = useRouter();
+  const { login } = useAuth();
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Here you would add your registration logic
-    console.log("Signing up with:", name, email, password);
-    
-    // Simulate registration delay
-    setTimeout(() => {
+
+    const baseUrl = "http://localhost:3002";
+    console.log("Aa", baseUrl);
+    try {
+      const response = await axios.post(`${baseUrl}/signup`, {
+        username: name,
+        password,
+      });
+
+      const token = response.data.token;
+      login(token);
+      console.log("Response", response);
+      if (response.status === 200) {
+        setIsLoading(false);
+        router.push("/");
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
       setIsLoading(false);
-      router.push("/sign-in");
-    }, 1000);
+      setError("Registration failed");
+    }
   };
 
   return (
@@ -51,7 +66,7 @@ export default function SignUp() {
                   htmlFor="name"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                 >
-                  Name
+                  Username
                 </label>
                 <input
                   id="name"
@@ -59,23 +74,6 @@ export default function SignUp() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="email"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   required
                 />
@@ -104,6 +102,7 @@ export default function SignUp() {
               >
                 {isLoading ? "Creating account..." : "Create account"}
               </button>
+              {error && <p className="text-red-500">{error}</p>}
             </form>
             <div className="flex items-center justify-center space-x-1">
               <span className="text-sm text-muted-foreground">
@@ -121,4 +120,4 @@ export default function SignUp() {
       </main>
     </div>
   );
-} 
+}

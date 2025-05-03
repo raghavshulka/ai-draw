@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from "ws";
 import { prisma } from "db/client";
 
+
 const wss = new WebSocketServer({ port: 8080 });
 
 interface User {

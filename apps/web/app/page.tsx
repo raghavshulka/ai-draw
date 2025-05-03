@@ -1,7 +1,19 @@
+"use client";
+
 import Link from "next/link";
 import { ModeToggle } from "../components/mode-toggle";
+import { useAuth } from "./providers/authProvider";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const { isAuthenticated, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    logout();
+    router.push("/");
+  };
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 w-full border-b bg-background">
@@ -10,12 +22,28 @@ export default function Home() {
             AI Draw
           </Link>
           <nav className="flex items-center gap-6">
-            <Link href="/sign-in" className="text-sm font-medium hover:text-primary">
-              Sign In
-            </Link>
-            <Link href="/sign-up" className="text-sm font-medium hover:text-primary">
-              Sign Up
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link href="/dashboard" className="text-sm font-medium hover:text-primary">
+                  Dashboard
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm font-medium hover:text-primary"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/sign-in" className="text-sm font-medium hover:text-primary">
+                  Sign In
+                </Link>
+                <Link href="/sign-up" className="text-sm font-medium hover:text-primary">
+                  Sign Up
+                </Link>
+              </>
+            )}
             <ModeToggle />
           </nav>
         </div>
@@ -31,12 +59,21 @@ export default function Home() {
                 Create beautiful artwork with the power of AI
               </p>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                <Link
-                  href="/sign-up"
-                  className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  Get Started
-                </Link>
+                {!isAuthenticated ? (
+                  <Link
+                    href="/sign-up"
+                    className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Get Started
+                  </Link>
+                ) : (
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    Go to Dashboard
+                  </Link>
+                )}
               </div>
             </div>
           </div>
