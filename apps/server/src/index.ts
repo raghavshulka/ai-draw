@@ -41,7 +41,7 @@ app.post("/login", async (req, res) => {
     return;
   }
   const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || "secret");
-  res.json({ token });
+  res.json({ token , username: user.username });
 });
 
 app.post("/create-room", authMiddleware, async (req, res) => {

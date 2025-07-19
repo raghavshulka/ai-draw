@@ -26,10 +26,13 @@ export default function SignIn() {
         username,
         password,
       });
-      
+      console.log("response------------------", response);
       if (response.status === 200) {
         const token = response.data.token;
+        const username = response.data.username;
         login(token);
+        localStorage.setItem("username", username);
+        setUsername(username);
         setIsLoading(false);
         router.push("/");
       }
