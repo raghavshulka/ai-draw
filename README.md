@@ -17,6 +17,7 @@ AIDraw provides a simple, intuitive interface for creating diagrams, sketches, a
 - Keyboard shortcuts for power users
 - AI-assisted drawing features
 
+
 ## Tech Stack
 
 - **Frontend**: Next.js, React, TypeScript
