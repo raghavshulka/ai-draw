@@ -2,9 +2,20 @@ import jwt from "jsonwebtoken";
 import { WebSocketServer, WebSocket } from "ws";
 import { prisma } from "db/client";
 
+import { createServer } from "http";
+
 const PORT = Number(process.env.PORT) || 8080;
-const wss = new WebSocketServer({ port: PORT });
-console.log(`WebSocket server listening on ${PORT}`);
+// Plain HTTP server underneath so hosting health checks and humans get a useful answer on GET /health.
+const httpServer = createServer((req, res) => {
+  if (req.url === "/health" || req.url === "/") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ ok: true, service: "aidraw-ws", commit: process.env.RENDER_GIT_COMMIT ?? null }));
+    return;
+  }
+  res.writeHead(404); res.end();
+});
+const wss = new WebSocketServer({ server: httpServer });
+httpServer.listen(PORT, () => console.log(`WebSocket server listening on ${PORT}`));
 
 interface User {
   ws: WebSocket;
