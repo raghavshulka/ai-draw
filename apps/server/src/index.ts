@@ -127,6 +127,13 @@ app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
+// JSON error handler so clients and logs see the real failure instead of an empty 500
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error("Unhandled error:", message);
+  res.status(500).json({ message: "Internal error", detail: message.slice(0, 300) });
+});
+
 const PORT = Number(process.env.PORT) || 3002;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
