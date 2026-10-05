@@ -1,5 +1,5 @@
 import express from "express";
-import { prisma } from "db/client";
+import { prisma, databaseConfigSummary } from "db/client";
 import jwt from "jsonwebtoken";
 import { authMiddleware } from "./middleware.js";
 import cors from "cors";
@@ -123,8 +123,13 @@ app.get("/", (req, res) => {
   res.send("AIDraw API is running");
 });
 
-app.get("/health", (req, res) => {
-  res.json({ ok: true });
+app.get("/health", async (req, res) => {
+  const db = databaseConfigSummary();
+  let reachable = false;
+  if (db.validProtocol) {
+    try { await prisma.$queryRaw`SELECT 1`; reachable = true; } catch { reachable = false; }
+  }
+  res.json({ ok: true, db: { ...db, reachable } });
 });
 
 // JSON error handler so clients and logs see the real failure instead of an empty 500
