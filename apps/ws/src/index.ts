@@ -25,13 +25,20 @@ interface User {
 }
 const users: User[] = [];
 
+// Send a policy-violation close and then drop the TCP connection without waiting for the
+// client's close frame; some proxies delay the handshake by 20+ seconds otherwise.
+function rejectSocket(ws: WebSocket) {
+  try { ws.close(1008, "invalid token"); } catch {}
+  setTimeout(() => { try { ws.terminate(); } catch {} }, 250);
+}
+
 wss.on("connection", function connection(ws, req) {
   const params = req.url;
   const url = new URLSearchParams(params?.split("?")[1]);
   const token = url.get("token");
 
   if (!token) {
-    ws.close();
+    rejectSocket(ws);
     return;
   }
 
@@ -39,11 +46,11 @@ wss.on("connection", function connection(ws, req) {
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
   } catch {
-    ws.close(1008, "invalid token");
+    rejectSocket(ws);
     return;
   }
   if (!decoded || typeof decoded === "string") {
-    ws.close(1008, "invalid token");
+    rejectSocket(ws);
     return;
   }
 
