@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "../components/theme-provider";
@@ -13,9 +13,32 @@ const geistMono = localFont({
   variable: "--font-geist-mono",
 });
 
+const title = "AIDraw — Real-time collaborative whiteboard";
+const description =
+  "Sketch together in shared rooms: strokes sync live over WebSockets, rooms are shared by ID, and chat sits next to the canvas.";
+
 export const metadata: Metadata = {
-  title: "AI Draw",
-  description: "Create beautiful artwork with AI",
+  title,
+  description,
+  applicationName: "AIDraw",
+  openGraph: {
+    type: "website",
+    siteName: "AIDraw",
+    title,
+    description,
+  },
+  twitter: {
+    card: "summary",
+    title,
+    description,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+  ],
 };
 
 export default function RootLayout({

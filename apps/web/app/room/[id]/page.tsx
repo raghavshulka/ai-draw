@@ -4,7 +4,11 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { use } from "react";
-import { ModeToggle } from "../../../components/mode-toggle";
+import { ArrowLeft, Eraser, Link2, MessageSquare, Send, X } from "lucide-react";
+import { SiteHeader } from "../../../components/site-header";
+import { CopyButton } from "../../../components/copy-button";
+import { Button, Input, Spinner, buttonClasses } from "../../../components/ui";
+import { cn } from "../../../cn";
 import { useAuth } from "../../providers/authProvider";
 
 interface RoomDetails {
@@ -30,6 +34,18 @@ interface DrawingData {
   userName?: string;
 }
 
+// Values are sent over the WebSocket as-is; keep them stable.
+const COLORS = [
+  { value: "#000000", name: "Black" },
+  { value: "#ff0000", name: "Red" },
+  { value: "#00ff00", name: "Green" },
+  { value: "#0000ff", name: "Blue" },
+  { value: "#ffff00", name: "Yellow" },
+  { value: "#ff00ff", name: "Magenta" },
+];
+const LINE_WIDTHS = [1, 2, 5, 10];
+const DOT_SIZE: Record<number, number> = { 1: 3, 2: 5, 5: 9, 10: 14 };
+
 // Helper function to decode JWT token
 const decodeToken = (token: string) => {
   try {
@@ -52,7 +68,7 @@ const decodeToken = (token: string) => {
 };
 
 export default function RoomPage({ params }: { params: Promise<{ id: string }> }) {
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, ready, token } = useAuth();
   const router = useRouter();
   const resolvedParams = use(params);
   const roomId = resolvedParams.id;
@@ -60,7 +76,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   // Decode user info from token
   const userInfo = token ? decodeToken(token) : null;
   const userId = userInfo?.id || userInfo?.sub;
-  const userName = localStorage.getItem("username");
+  const userName = typeof window !== "undefined" ? localStorage.getItem("username") : null;
   console.log("username", userName);
   
   const [roomDetails, setRoomDetails] = useState<RoomDetails | null>(null);
@@ -68,7 +84,6 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [shareUrl, setShareUrl] = useState("");
-  const [showShareModal, setShowShareModal] = useState(false);
   const [showChat, setShowChat] = useState(true);
   const [drawingColor, setDrawingColor] = useState("#000000");
   const [lineWidth, setLineWidth] = useState(2);
@@ -76,6 +91,11 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const msgContainerRef = useRef<HTMLDivElement>(null);
+
+  // Start with the chat collapsed on small screens so the canvas gets the room.
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) setShowChat(false);
+  }, []);
   
   console.log("RoomPage: Component initialized for room:", roomId);
   console.log("RoomPage: Authentication status:", isAuthenticated);
@@ -242,14 +262,17 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       return;
     }
     
-    // Set canvas dimensions
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    console.log("RoomPage: Canvas dimensions set to:", canvas.width, "x", canvas.height);
-    
-    // Set white background
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    // Set canvas dimensions. Assigning width/height wipes the bitmap, so only do it
+    // when the size actually changed (not on every colour / line-width change).
+    if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      console.log("RoomPage: Canvas dimensions set to:", canvas.width, "x", canvas.height);
+
+      // Set white background
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
     
     // Drawing state
     let isDrawing = false;
@@ -311,19 +334,22 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
       }
     };
     
-    // Add event listeners
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
+    // Add event listeners (pointer events cover mouse, touch and pen)
+    canvas.addEventListener('pointerdown', startDrawing);
+    canvas.addEventListener('pointermove', draw);
+    canvas.addEventListener('pointerup', stopDrawing);
+    canvas.addEventListener('pointerleave', stopDrawing);
+    canvas.addEventListener('pointercancel', stopDrawing);
     
     return () => {
-      canvas.removeEventListener('mousedown', startDrawing);
-      canvas.removeEventListener('mousemove', draw);
-      canvas.removeEventListener('mouseup', stopDrawing);
-      canvas.removeEventListener('mouseout', stopDrawing);
+      canvas.removeEventListener('pointerdown', startDrawing);
+      canvas.removeEventListener('pointermove', draw);
+      canvas.removeEventListener('pointerup', stopDrawing);
+      canvas.removeEventListener('pointerleave', stopDrawing);
+      canvas.removeEventListener('pointercancel', stopDrawing);
     };
-  }, [roomId, drawingColor, lineWidth, userId, userName]);
+    // `loading` is included so listeners attach once the canvas mounts after the spinner.
+  }, [roomId, drawingColor, lineWidth, userId, userName, loading]);
   
   const drawFromWebSocket = (data: DrawingData) => {
     if (!canvasRef.current) {
@@ -362,6 +388,8 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
   
   // Fetch room details
   useEffect(() => {
+    // Wait until the stored token has been read before deciding to redirect.
+    if (!ready) return;
     if (!isAuthenticated) {
       console.log("RoomPage: User not authenticated, redirecting to sign-in");
       router.push("/sign-in");
@@ -385,7 +413,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     const url = `${window.location.origin}/room/${roomId}`;
     console.log("RoomPage: Setting share URL:", url);
     setShareUrl(url);
-  }, [isAuthenticated, router, roomId, token]);
+  }, [ready, isAuthenticated, router, roomId, token]);
 
   // Scroll chat to bottom when new messages arrive
   useEffect(() => {
@@ -433,12 +461,6 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     }
   };
   
-  const copyShareLink = () => {
-    console.log("RoomPage: Copying share link to clipboard:", shareUrl);
-    navigator.clipboard.writeText(shareUrl);
-    alert("Room link copied to clipboard!");
-  };
-  
   const clearCanvas = () => {
     console.log("RoomPage: Clearing canvas");
     const canvas = canvasRef.current;
@@ -476,218 +498,176 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     console.log("RoomPage: Rendering loading state");
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+        <Spinner className="h-8 w-8" label="Loading room" />
       </div>
     );
   }
 
   console.log("RoomPage: Rendering main room interface");
+  const toolbarDivider = <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />;
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 w-full border-b bg-background">
-        <div className="container flex h-16 items-center justify-between py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-sm font-medium hover:text-primary">
-              ← Back to Dashboard
-            </Link>
-            <h1 className="font-bold truncate max-w-[200px] md:max-w-md">
-              {roomDetails?.name}
-            </h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setShowShareModal(true)}
-              className="text-sm font-medium hover:text-primary"
-            >
-              Share Room
-            </button>
-            <button 
-              onClick={() => setShowChat(!showChat)}
-              className="text-sm font-medium hover:text-primary"
-            >
-              {showChat ? "Hide Chat" : "Show Chat"}
-            </button>
-            <span className="text-sm text-muted-foreground">Room ID: {roomId}</span>
-            <ModeToggle />
-          </div>
+    <div className="flex h-[100dvh] flex-col overflow-hidden">
+      <SiteHeader fluid>
+        <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden="true" />
+        <h1 className="hidden min-w-0 truncate text-sm font-medium md:block" title={roomDetails?.name}>
+          {roomDetails?.name}
+        </h1>
+        <div className="flex min-w-0 items-center gap-0.5 rounded-md border bg-muted/50 py-0.5 pl-2 pr-0.5">
+          <span className="shrink-0 text-xs text-muted-foreground">ID</span>
+          <code className="min-w-0 truncate px-1 font-mono text-xs">{roomId}</code>
+          <CopyButton value={roomId} label="Copy room ID" size="icon" className="h-7 w-7" />
         </div>
-      </header>
-      
-      <main className="flex-1 p-6">
-        <div className="container flex flex-col h-full">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Collaborative Drawing Room</h2>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={clearCanvas}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                Clear Canvas
-              </button>
-              <button 
-                onClick={() => setShowShareModal(true)}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                Invite Others
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex gap-4 h-[calc(100vh-220px)]">
-            <div className={`flex-1 border rounded-lg bg-card shadow-sm relative ${showChat ? 'w-2/3' : 'w-full'}`}>
-              <canvas 
-                ref={canvasRef} 
-                className="w-full h-full bg-white rounded-lg cursor-crosshair"
-              />
-            </div>
-            
-            {showChat && (
-              <div className="w-1/3 border rounded-lg bg-card shadow-sm flex flex-col">
-                <div className="p-3 border-b">
-                  <h3 className="font-medium">Chat</h3>
-                </div>
-                <div 
-                  ref={msgContainerRef}
-                  className="flex-1 p-3 overflow-y-auto space-y-3"
-                >
-                  {messages.length === 0 ? (
-                    <div className="text-center text-muted-foreground p-4">
-                      No messages yet. Start the conversation!
-                    </div>
-                  ) : (
-                    messages.map(msg => (
-                      <div key={msg.id + Math.random()} className={`flex ${msg.isOwnMessage ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                          msg.isOwnMessage 
-                            ? 'bg-primary text-primary-foreground' 
-                            : msg.sender === 'System' 
-                              ? 'bg-muted text-foreground italic text-center w-full'
-                              : 'bg-secondary text-secondary-foreground'
-                        }`}>
-                          {!msg.isOwnMessage && msg.sender !== 'System' && (
-                            <div className="text-xs font-medium mb-1">{msg.sender}</div>
-                          )}
-                          <div>{msg.content}</div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <div className="p-3 border-t">
-                  <form onSubmit={sendMessage} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      placeholder="Type a message..."
-                      className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    />
-                    <button
-                      type="submit"
-                      className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      Send
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="mt-6">
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2 rounded-md bg-muted p-2">
-                <span className="text-sm font-medium">Line Width:</span>
-                <button 
-                  onClick={() => changeLineWidth(1)}
-                  className={`p-1 rounded-sm hover:bg-background ${lineWidth === 1 ? 'bg-background' : ''}`}
-                >
-                  1px
-                </button>
-                <button 
-                  onClick={() => changeLineWidth(2)}
-                  className={`p-1 rounded-sm hover:bg-background ${lineWidth === 2 ? 'bg-background' : ''}`}
-                >
-                  2px
-                </button>
-                <button 
-                  onClick={() => changeLineWidth(5)}
-                  className={`p-1 rounded-sm hover:bg-background ${lineWidth === 5 ? 'bg-background' : ''}`}
-                >
-                  5px
-                </button>
-                <button 
-                  onClick={() => changeLineWidth(10)}
-                  className={`p-1 rounded-sm hover:bg-background ${lineWidth === 10 ? 'bg-background' : ''}`}
-                >
-                  10px
-                </button>
-              </div>
-              <div className="flex items-center gap-2 rounded-md bg-muted p-2">
-                <span className="text-sm font-medium">Colors:</span>
-                <div 
-                  onClick={() => changeColor("#000000")}
-                  className={`w-6 h-6 rounded-full bg-black cursor-pointer border-2 ${drawingColor === "#000000" ? 'border-blue-500' : 'border-gray-300'}`}
-                ></div>
-                <div 
-                  onClick={() => changeColor("#ff0000")}
-                  className={`w-6 h-6 rounded-full bg-red-500 cursor-pointer border-2 ${drawingColor === "#ff0000" ? 'border-blue-500' : 'border-gray-300'}`}
-                ></div>
-                <div 
-                  onClick={() => changeColor("#00ff00")}
-                  className={`w-6 h-6 rounded-full bg-green-500 cursor-pointer border-2 ${drawingColor === "#00ff00" ? 'border-blue-500' : 'border-gray-300'}`}
-                ></div>
-                <div 
-                  onClick={() => changeColor("#0000ff")}
-                  className={`w-6 h-6 rounded-full bg-blue-500 cursor-pointer border-2 ${drawingColor === "#0000ff" ? 'border-blue-500' : 'border-gray-300'}`}
-                ></div>
-                <div 
-                  onClick={() => changeColor("#ffff00")}
-                  className={`w-6 h-6 rounded-full bg-yellow-500 cursor-pointer border-2 ${drawingColor === "#ffff00" ? 'border-blue-500' : 'border-gray-300'}`}
-                ></div>
-                <div 
-                  onClick={() => changeColor("#ff00ff")}
-                  className={`w-6 h-6 rounded-full bg-purple-500 cursor-pointer border-2 ${drawingColor === "#ff00ff" ? 'border-blue-500' : 'border-gray-300'}`}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-      
-      {/* Share Modal */}
-      {showShareModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Share Room</h3>
-              <button 
-                onClick={() => setShowShareModal(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                ✕
-              </button>
-            </div>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Share this link with others to invite them to this drawing room:
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={shareUrl}
-                readOnly
-                className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              />
+      </SiteHeader>
+
+      <main className="relative min-h-0 flex-1 bg-muted/40">
+        <canvas
+          ref={canvasRef}
+          aria-label="Shared drawing canvas"
+          className="absolute inset-0 h-full w-full cursor-crosshair touch-none bg-white"
+        />
+
+        {/* Toolbar */}
+        <div
+          role="toolbar"
+          aria-label="Drawing tools"
+          className="absolute left-1/2 top-3 z-10 flex w-max max-w-[calc(100%-1rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-xl border bg-background/95 p-1.5 shadow-md backdrop-blur"
+        >
+          <div className="flex items-center gap-1 px-1" role="group" aria-label="Colour">
+            {COLORS.map((c) => (
               <button
-                onClick={copyShareLink}
-                className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                key={c.value}
+                type="button"
+                onClick={() => changeColor(c.value)}
+                aria-label={c.name}
+                aria-pressed={drawingColor === c.value}
+                title={c.name}
+                className={cn(
+                  "h-6 w-6 rounded-full border border-foreground/25 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  drawingColor === c.value && "ring-2 ring-foreground ring-offset-2 ring-offset-background"
+                )}
+                style={{ backgroundColor: c.value }}
+              />
+            ))}
+          </div>
+          {toolbarDivider}
+          <div className="flex items-center gap-0.5" role="group" aria-label="Line width">
+            {LINE_WIDTHS.map((w) => (
+              <button
+                key={w}
+                type="button"
+                onClick={() => changeLineWidth(w)}
+                aria-label={`${w}px line`}
+                aria-pressed={lineWidth === w}
+                title={`${w}px`}
+                className={buttonClasses({
+                  variant: "ghost",
+                  size: "icon",
+                  className: cn("h-8 w-8", lineWidth === w && "bg-secondary text-secondary-foreground"),
+                })}
               >
-                Copy
+                <span
+                  aria-hidden="true"
+                  className="rounded-full bg-foreground"
+                  style={{ width: DOT_SIZE[w], height: DOT_SIZE[w] }}
+                />
               </button>
-            </div>
+            ))}
+          </div>
+          {toolbarDivider}
+          <div className="flex items-center gap-0.5">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={clearCanvas} aria-label="Clear canvas for everyone" title="Clear canvas">
+              <Eraser className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <CopyButton value={shareUrl} label="Copy invite link" icon={Link2} size="icon" className="h-8 w-8" />
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("h-8 w-8", showChat && "bg-secondary text-secondary-foreground")}
+              onClick={() => setShowChat(!showChat)}
+              aria-label={showChat ? "Hide chat" : "Show chat"}
+              aria-pressed={showChat}
+              aria-controls="room-chat"
+              title={showChat ? "Hide chat" : "Show chat"}
+            >
+              <MessageSquare className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Link href="/dashboard" className={buttonClasses({ variant: "ghost", size: "sm", className: "h-8" })} title="Leave room">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              <span>Leave</span>
+            </Link>
           </div>
         </div>
-      )}
+
+        {/* Chat */}
+        {showChat && (
+          <section
+            id="room-chat"
+            aria-label="Room chat"
+            className="absolute inset-x-2 bottom-2 z-20 flex h-[55%] flex-col overflow-hidden rounded-xl border bg-background shadow-lg md:inset-x-auto md:bottom-3 md:right-3 md:top-20 md:h-auto md:w-80"
+          >
+            <div className="flex items-center justify-between border-b px-4 py-2.5">
+              <h2 className="text-sm font-semibold">Chat</h2>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowChat(false)} aria-label="Close chat">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+            <div
+              ref={msgContainerRef}
+              className="flex-1 space-y-3 overflow-y-auto px-4 py-3"
+              aria-live="polite"
+            >
+              {messages.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  No messages yet. Say hello to the room.
+                </p>
+              ) : (
+                messages.map((msg, i) =>
+                  msg.sender === "System" ? (
+                    <p key={`${msg.id}-${i}`} className="text-center text-xs text-muted-foreground">
+                      {msg.content}
+                    </p>
+                  ) : (
+                    <div key={`${msg.id}-${i}`} className={cn("flex flex-col", msg.isOwnMessage ? "items-end" : "items-start")}>
+                      <div className="mb-1 flex items-baseline gap-2 px-1 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{msg.isOwnMessage ? "You" : msg.sender}</span>
+                        <time dateTime={new Date(msg.timestamp).toISOString()}>
+                          {new Date(msg.timestamp).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                        </time>
+                      </div>
+                      <div
+                        className={cn(
+                          "max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm",
+                          msg.isOwnMessage
+                            ? "rounded-br-sm bg-primary text-primary-foreground"
+                            : "rounded-bl-sm bg-secondary text-secondary-foreground"
+                        )}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  )
+                )
+              )}
+            </div>
+            <form onSubmit={sendMessage} className="flex gap-2 border-t p-3">
+              <label htmlFor="chat-input" className="sr-only">
+                Message
+              </label>
+              <Input
+                id="chat-input"
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="Write a message…"
+                autoComplete="off"
+              />
+              <Button type="submit" size="icon" className="h-10 w-10" aria-label="Send message" disabled={!inputMessage.trim()}>
+                <Send className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </form>
+          </section>
+        )}
+      </main>
     </div>
   );
-} 
+}

@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 
 type AuthContextType = {
   isAuthenticated: boolean;
+  /** True once the stored token (if any) has been read from localStorage. */
+  ready: boolean;
   token: string | null;
   login: (token: string) => void;
   logout: () => void;
@@ -14,6 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     // Check for token in localStorage on mount
@@ -22,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(storedToken);
       setIsAuthenticated(true);
     }
+    setReady(true);
   }, []);
 
   const login = (newToken: string) => {
@@ -37,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, token, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, ready, token, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

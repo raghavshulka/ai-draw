@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
+import { buttonClasses } from "./ui"
 
 export function ModeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
@@ -11,28 +12,18 @@ export function ModeToggle() {
   // After mounting, we have access to the theme
   React.useEffect(() => setMounted(true), [])
 
-  if (!mounted) {
-    return (
-      <button
-        className="rounded-md p-2.5 focus:outline-none focus:ring-2 focus:ring-ring bg-background"
-      >
-        <span className="sr-only">Toggle theme</span>
-        <Moon className="h-5 w-5 text-foreground" />
-      </button>
-    )
-  }
+  const isDark = mounted && resolvedTheme === "dark"
+  const label = isDark ? "Switch to light theme" : "Switch to dark theme"
 
   return (
     <button
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      className="rounded-md p-2.5 focus:outline-none focus:ring-2 focus:ring-ring bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+      type="button"
+      onClick={() => mounted && setTheme(isDark ? "light" : "dark")}
+      aria-label={label}
+      title={label}
+      className={buttonClasses({ variant: "ghost", size: "icon", className: "text-muted-foreground hover:text-foreground" })}
     >
-      {resolvedTheme === "dark" ? (
-        <Sun className="h-5 w-5" />
-      ) : (
-        <Moon className="h-5 w-5" />
-      )}
-      <span className="sr-only">Toggle theme</span>
+      {isDark ? <Sun className="h-[18px] w-[18px]" aria-hidden="true" /> : <Moon className="h-[18px] w-[18px]" aria-hidden="true" />}
     </button>
   )
-} 
+}
