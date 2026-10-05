@@ -1,0 +1,36 @@
+# Render Blueprint — deploys the AIDraw API and WebSocket servers (free plan).
+# Dashboard → New → Blueprint → select raghavshulka/ai-draw → Apply.
+# DATABASE_URL is prompted at apply time (Neon Postgres). The web app lives on Vercel (ai-draw-web.vercel.app).
+services:
+  - type: web
+    name: aidraw-api-hs
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./apps/server/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: aidraw-ws-hs
+          envVarKey: JWT_SECRET
+      - key: NODE_ENV
+        value: production
+  - type: web
+    name: aidraw-ws-hs
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./apps/ws/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
