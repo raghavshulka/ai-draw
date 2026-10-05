@@ -24,20 +24,27 @@ wss.on("connection", function connection(ws, req) {
     return;
   }
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
-  if (!decoded) {
-    ws.close();
+  let decoded: string | jwt.JwtPayload;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+  } catch {
+    ws.close(1008, "invalid token");
     return;
   }
-
-  if (typeof decoded === "string") {
+  if (!decoded || typeof decoded === "string") {
+    ws.close(1008, "invalid token");
     return;
   }
 
   users.push({ ws, id: decoded.id, rooms: [] });
 
   ws.on("message", async function message(data) {
-    const roomData = JSON.parse(data.toString());
+    let roomData: any;
+    try {
+      roomData = JSON.parse(data.toString());
+    } catch {
+      return;
+    }
     
     if (roomData.type === "join") {
       const user = users.find((x) => x.ws === ws);
@@ -125,3 +132,6 @@ wss.on("connection", function connection(ws, req) {
     }
   });
 });
+
+process.on("uncaughtException", (err) => console.error("uncaughtException", err));
+process.on("unhandledRejection", (err) => console.error("unhandledRejection", err));
