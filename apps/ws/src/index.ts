@@ -14,7 +14,27 @@ const httpServer = createServer((req, res) => {
   }
   res.writeHead(404); res.end();
 });
-const wss = new WebSocketServer({ server: httpServer });
+// Authenticate at the HTTP upgrade step: a bad or missing token gets a plain 401 before any
+// WebSocket exists, which proxies forward immediately (a post-upgrade close can be delayed by 20 s+).
+const wss = new WebSocketServer({ noServer: true });
+httpServer.on("upgrade", (req, socket, head) => {
+  const token = new URLSearchParams((req.url ?? "").split("?")[1]).get("token");
+  let valid = false;
+  if (token) {
+    try {
+      const d = jwt.verify(token, process.env.JWT_SECRET || "secret");
+      valid = !!d && typeof d !== "string";
+    } catch {
+      valid = false;
+    }
+  }
+  if (!valid) {
+    socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
+});
 httpServer.listen(PORT, () => console.log(`WebSocket server listening on ${PORT}`));
 
 interface User {
