@@ -103,7 +103,7 @@ export default function RoomPage({ params }: { params: Promise<{ id: string }> }
     
     try {
       // Connect to the WebSocket server
-      const wsUrl = `ws://localhost:8080?token=${token}`;
+      const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8080"}?token=${token}`;
       console.log("RoomPage: Attempting WebSocket connection to:", wsUrl);
       const ws = new WebSocket(wsUrl);
       

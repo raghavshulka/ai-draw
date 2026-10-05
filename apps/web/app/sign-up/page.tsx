@@ -19,7 +19,7 @@ export default function SignUp() {
     e.preventDefault();
     setIsLoading(true);
 
-    const baseUrl = "http://localhost:3002";
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
     console.log("Aa", baseUrl);
     try {
       const response = await axios.post(`${baseUrl}/signup`, {

@@ -1,0 +1,10 @@
+# Build context = repository root (pnpm workspace). Railway: set RAILWAY_DOCKERFILE_PATH=apps/server/Dockerfile
+FROM node:20-alpine
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+WORKDIR /app
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN cd packages/db && npx prisma generate && npx tsc -b
+RUN cd apps/server && npx tsc -b
+ENV NODE_ENV=production
+CMD ["node", "apps/server/dist/index.js"]

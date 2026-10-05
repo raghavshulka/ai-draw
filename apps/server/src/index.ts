@@ -3,6 +3,7 @@ import { prisma } from "db/client";
 import jwt from "jsonwebtoken";
 import { authMiddleware } from "./middleware.js";
 import cors from "cors";
+import bcrypt from "bcryptjs";
 
 const app = express();
 
@@ -26,17 +27,26 @@ app.use((req, res, next) => {
 
 app.post("/signup", async (req, res) => {
   const { username, password } = req.body;
+  if (!username || !password) {
+    res.status(400).json({ message: "username and password are required" });
+    return;
+  }
+  const existing = await prisma.user.findUnique({ where: { username } });
+  if (existing) {
+    res.status(409).json({ message: "Username already taken" });
+    return;
+  }
   const user = await prisma.user.create({
-    data: { username, password },
+    data: { username, password: await bcrypt.hash(password, 10) },
   });
   const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET || "secret");
-  res.json({ token });
+  res.json({ token, username: user.username });
 });
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  const user = await prisma.user.findUnique({ where: { username, password } });
-  if (!user) {
+  const user = username ? await prisma.user.findUnique({ where: { username } }) : null;
+  if (!user || !(await bcrypt.compare(password ?? "", user.password))) {
     res.status(401).json({ message: "Invalid credentials" });
     return;
   }
@@ -110,9 +120,14 @@ app.get("/my-rooms", authMiddleware, async (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("Hello World");
+  res.send("AIDraw API is running");
 });
 
-app.listen(3002, () => {
-  console.log("Server is running on port 3002");
+app.get("/health", (req, res) => {
+  res.json({ ok: true });
+});
+
+const PORT = Number(process.env.PORT) || 3002;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });

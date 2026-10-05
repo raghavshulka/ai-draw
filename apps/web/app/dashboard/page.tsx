@@ -1,5 +1,7 @@
 "use client";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3002";
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -41,7 +43,7 @@ export default function Dashboard() {
     
     setLoadingRooms(true);
     try {
-      const response = await axios.get("http://localhost:3002/my-rooms", {
+      const response = await axios.get(`${API_URL}/my-rooms`, {
         headers: {
           Authorization: token,
         },
@@ -66,7 +68,7 @@ export default function Dashboard() {
 
     try {
       const response = await axios.post(
-        "http://localhost:3002/create-room",
+        `${API_URL}/create-room`,
         { name: roomName },
         {
           headers: {
@@ -105,7 +107,7 @@ export default function Dashboard() {
 
     // Call the API endpoint to join the room
     axios.post(
-      `http://localhost:3002/join-room/${roomId.trim()}`,
+      `${API_URL}/join-room/${roomId.trim()}`,
       {},
       {
         headers: {

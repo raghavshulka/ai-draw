@@ -7,7 +7,8 @@ export const authMiddleware = (
   next: NextFunction
 ) => {
   try {
-    const token = req.headers.authorization;
+    const raw = req.headers.authorization ?? "";
+    const token = raw.startsWith("Bearer ") ? raw.slice(7) : raw;
     if (!token) {
       res.status(401).json({ message: "Unauthorized" });
       return;
